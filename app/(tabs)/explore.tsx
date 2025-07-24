@@ -1,110 +1,112 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import axios from 'axios';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Button, Text, TextInput, View } from 'react-native';
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+const BACKEND_URL = 'http://192.168.1.6:5000'; // Cambia por tu IP local
 
-export default function TabTwoScreen() {
+export default function Explore() {
+  const [pdfName, setPdfName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [status, setStatus] = useState('');
+
+  const handlePickPdf = async () => {
+    setLoading(true);
+    setStatus('');
+    setPdfName('');
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
+      console.log('DocumentPicker result:', result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setPdfName(asset.name);
+        setStatus('Procesando archivo...');
+
+        const fileUri = asset.uri;
+        const fileBase64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+
+        setStatus('Subiendo archivo...');
+        const res = await axios.post(
+          `${BACKEND_URL}/upload`,
+          {
+            file: fileBase64,
+            filename: asset.name,
+          },
+          {
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+
+        setStatus(res.data.message || 'Archivo subido correctamente');
+        Alert.alert('PDF', res.data.message || 'Archivo subido correctamente');
+      } else if (result.canceled) {
+        setStatus('Selección cancelada por el usuario.');
+      } else {
+        setStatus('No se seleccionó ningún archivo.');
+        Alert.alert('Error', 'No se seleccionó ningún archivo.');
+      }
+    } catch (err: any) {
+      setStatus('Error al subir el PDF');
+      Alert.alert('Error', err.response?.data?.message || err.message || 'No se pudo subir el PDF');
+    }
+    setLoading(false);
+  };
+
+  const handleAsk = async () => {
+    setLoading(true);
+    setAnswer('');
+    setStatus('');
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/ask`,
+        { question: question },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      setAnswer(res.data.answer);
+      setStatus('Respuesta recibida');
+    } catch (err: any) {
+      setStatus('Error al obtener respuesta');
+      Alert.alert('Error', err.response?.data?.message || err.message || 'No se pudo obtener respuesta');
+    }
+    setLoading(false);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={{ flex: 1, padding: 16, backgroundColor: '#f7f7f7' }}>
+      <View style={{ marginTop: 60 }}>
+        <Button title="Seleccionar PDF" onPress={handlePickPdf} disabled={loading} color="#2196F3" />
+      </View>
+      {pdfName ? <Text style={{ marginTop: 10, fontWeight: 'bold', color: '#2196F3' }}>PDF seleccionado: {pdfName}</Text> : null}
+      {status ? <Text style={{ marginTop: 10, color: '#555' }}>{status}</Text> : null}
+
+      <TextInput
+        style={{ borderWidth: 1, marginVertical: 16, padding: 8, backgroundColor: '#fff', borderRadius: 6 }}
+        placeholder="Escribe tu pregunta"
+        value={question}
+        onChangeText={setQuestion}
+        editable={!loading}
+      />
+      <Button
+        title="Preguntar"
+        onPress={handleAsk}
+        disabled={loading || !question.trim()}
+        color="#90CAF9"
+      />
+
+      {loading && (
+        <ActivityIndicator size="large" style={{ marginTop: 16 }} color="#2196F3" />
+      )}
+
+      {answer ? (
+        <View style={{ marginTop: 16, backgroundColor: '#e3f2fd', padding: 12, borderRadius: 6 }}>
+          <Text style={{ fontWeight: 'bold', color: '#1565c0' }}>Respuesta:</Text>
+          <Text style={{ color: '#1565c0' }}>{answer}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-});
